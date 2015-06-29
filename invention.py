@@ -24,12 +24,12 @@ class Blueprint():
 		self.time_effic = time_effic
 		self.mats_required = mats_required
 
-	def outcome_bp(self, input_material):
-		new_prob = self.prob * input_material.prob_multi
-		max_run = self.runs + input_material.max_run_mod
-		new_mat_effic = self.mat_effic + input_material.mat_effic
-		new_time_effic = self.time_effic + input_material.time_effic
-		outcome_bp = Blueprint(self.name + " : " + input_material.name, 
+	def outcome_bp(self, decryptor):
+		new_prob = self.prob * decryptor.prob_multi
+		max_run = self.runs + decryptor.max_run_mod
+		new_mat_effic = self.mat_effic + decryptor.mat_effic
+		new_time_effic = self.time_effic + decryptor.time_effic
+		outcome_bp = Blueprint(self.name + " : " + decryptor.name, 
 			self.mats_required, max_run, new_prob, new_mat_effic, new_time_effic)
 		return outcome_bp
 
@@ -71,53 +71,59 @@ def load_csv():
 		reader = csv.reader(fp)
 		return {rows[0]:rows[1] for rows in reader}
 	
-def init_materials(materials):
-	for mats in bp_mats:
+def init_materials(the_mats):
+	materials = {}
+	for mats in the_mats:
 		if not mats['typeID'] in materials: 
 			materials[mats['typeID']] = Material(mats['typeID'])
 	return materials
-	
 
-#To hold BP dictionary
-bp_json_data = load_json()
-
-#To hold typeID to name dictionary
-typeID_name_data = load_csv()
-
-#Take typeID from input 
-the_bp_typeID = input('Enter the typeID of the tier 2 blueprint \n>> ')
-#Collect the materials required information
-bp_mats = bp_json_data[the_bp_typeID]['activities']['manufacturing']['materials']
-
-#Create required material objects for use in setting price later on
-materials = {}
-materials = init_materials(materials)
-#Redo this garbage code
-
-#Create the typeid specific part of the url
-text = ""
-for i in range(0, len(bp_mats)):
-	text = text + "typeid=" + str(bp_mats[i]['typeID']) + "&"
-
-product_typeID = str(bp_json_data[the_bp_typeID]['activities']['manufacturing']['products'][0]['typeID'])
-text = text + "typeid=" + product_typeID + "&"
-
-productprice = 0
-#Request XML data
-with urllib.request.urlopen('http://api.eve-central.com/api/marketstat?' + text + 'regionlimit=10000002') as response:
-	xml = response.read()
-	from xml.etree import ElementTree as ET
-	#Set price of each material by finding the typeid in the XML data
+def create_marketstat_url():
+	text = ""
 	for i in range(0, len(bp_mats)):
-		materials[bp_mats[i]['typeID']].setprice(float(ET.fromstring(xml).find('marketstat/type[@id=\'' + str(bp_mats[i]['typeID']) + '\']/sell/min').text))
-	#Set product price in the same way
-	productprice = float(ET.fromstring(xml).find('marketstat/type[@id=\'' + product_typeID + '\']/sell/min').text)
+		text = text + "typeid=" + str(bp_mats[i]['typeID']) + "&"
+	return text + "typeid=" + product_typeID + "&"
 
-test_bp = Blueprint(typeID_name_data[the_bp_typeID], bp_mats)
-test_product = Product(typeID_name_data[product_typeID], productprice) 
+def get_market_data():
+	with urllib.request.urlopen('http://api.eve-central.com/api/marketstat?' + text + 'regionlimit=10000002') as response:
+		xml = response.read()
+		from xml.etree import ElementTree as ET
+		#Set price of each material by finding the typeid in the XML data
+		for i in range(0, len(bp_mats)):
+			materials[bp_mats[i]['typeID']].setprice(float(ET.fromstring(xml).find('marketstat/type[@id=\'' + str(bp_mats[i]['typeID']) + '\']/sell/min').text))
+		#Set product price in the same way
+		return float(ET.fromstring(xml).find('marketstat/type[@id=\'' + product_typeID + '\']/sell/min').text)
 
-#Decryptors
-input_mats = (
+def calculate_outcomes():
+	outcomes = []
+	for index in range(len(decryptors)):
+		outcomes.append(bp.outcome_bp(decryptors[index]))
+	return outcomes
+
+def init_averages():
+	averages = {}
+	for index in range(len(outcomes)):
+		averages[outcomes[index].name] = 0
+	return averages
+
+def run_scenarios(cycles=100):
+	for i in range(0, cycles):
+		for index in range(len(outcomes)):
+			averages[outcomes[index].name] += calc_profit(product, outcomes[index])
+	calculate_averages(cycles)
+
+def calculate_averages(cycles):
+	for name in averages:
+		averages[name] /= cycles
+
+def print_results():
+	print('For creating: ' + product.name + ' \nThe projected profits are as follows:')
+	for key, value in averages.items():
+		print(key + " : " + "{:,}".format(math.floor(value)))
+	input('Press enter to exit.')
+
+#Decryptors used in invention process
+decryptors = (
 	Decryptor("Accelerant Decryptor", 1.2, 1, 2, 10),
 	Decryptor("Attainment Decryptor", 1.8, 4, -1, 4),
 	Decryptor("Augmentation Decryptor", 0.6, 9, -2, 2),
@@ -128,26 +134,42 @@ input_mats = (
 	Decryptor("Symmetry Decryptor", 1, 2, 1, 8)
 )
 
-outcomes = []
-for index in range(len(input_mats)):
-	outcomes.append(test_bp.outcome_bp(input_mats[index]))
+#Load blueprint data into dictionary
+blueprint_data = load_json()
+
+#Load typeID/name data into dictionary
+typeID_name_data = load_csv()
+
+#Recieve typeID from input 
+bp_typeID = input('Enter the typeID of the tier 2 blueprint you wish to make \n>> ')
+
+#Retrieve product typeID
+product_typeID = str(blueprint_data[bp_typeID]['activities']['manufacturing']['products'][0]['typeID'])
+
+#Collect the materials required information
+bp_mats = blueprint_data[bp_typeID]['activities']['manufacturing']['materials']
+
+#Create required material objects for use in setting price later on
+materials = init_materials(bp_mats)
+
+#Create the typeid specific part of the url
+text = create_marketstat_url()
+
+#Request XML data for materials and product, only returns product price, material prices set in materials dictionary
+productprice = get_market_data()
+
+#Create bp and product objects
+bp = Blueprint(typeID_name_data[bp_typeID], bp_mats)
+product = Product(typeID_name_data[product_typeID], productprice) 
+
+#Calculate outcome of invention with each decryptor
+outcomes = calculate_outcomes()
 
 #Creates average dictionary and initiates with keys
-averages = {}
-for index in range(len(outcomes)):
-	averages[outcomes[index].name] = 0
+averages = init_averages()
 
 #Amount of case scenarios to run
-cycles = 100
-for i in range(0, cycles):
-	for index in range(len(outcomes)):
-		averages[outcomes[index].name] += calc_profit(test_product, outcomes[index])
+run_scenarios()
 
-#Calculate the average
-for name in averages:
-	averages[name] /= cycles
-
-for key, value in averages.items():
-	print(key + " : " + "{:,}".format(math.floor(value)))
-
-input('Press enter to exit.')
+#Print results
+print_results()
