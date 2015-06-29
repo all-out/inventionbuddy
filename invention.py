@@ -1,8 +1,4 @@
 import math
-import random
-import json
-import urllib.request
-import csv
 
 #Class for the decryptor used to affect probability, max runs, material/time efficiency in invention
 class Decryptor():
@@ -55,20 +51,23 @@ def calc_profit(product, blueprint, attempts=10):
 		mat_cost += (math.ceil((blueprint.mats_required[i]['quantity'] * blueprint.runs) * ((100 - blueprint.mat_effic) / 100))) * materials[blueprint.mats_required[i]['typeID']].cost
 
 	successful_bps = 0
+	from random import randrange
 	for i in range(0, attempts):
-		if random.randrange(0, 101) <= blueprint.prob : successful_bps += 1
+		if randrange(0, 101) <= blueprint.prob : successful_bps += 1
 	profit = ((product.sell_cost * blueprint.runs) * successful_bps) - (mat_cost * successful_bps)
 	return profit
 
 def load_json():
 	data = {}
+	from json import load
 	with open('blueprints.json', 'r') as fp:
-		return json.load(fp)
+		return load(fp)
 
 def load_csv():
 	data = {}
+	from csv import reader
 	with open('typeids.csv', 'r') as fp:
-		reader = csv.reader(fp)
+		reader = reader(fp)
 		return {rows[0]:rows[1] for rows in reader}
 	
 def init_materials(the_mats):
@@ -79,13 +78,14 @@ def init_materials(the_mats):
 	return materials
 
 def create_marketstat_url():
-	text = ""
+	url_text = ""
 	for i in range(0, len(bp_mats)):
-		text = text + "typeid=" + str(bp_mats[i]['typeID']) + "&"
-	return text + "typeid=" + product_typeID + "&"
+		url_text = url_text + "typeid=" + str(bp_mats[i]['typeID']) + "&"
+	return url_text + "typeid=" + product_typeID + "&"
 
 def get_market_data():
-	with urllib.request.urlopen('http://api.eve-central.com/api/marketstat?' + text + 'regionlimit=10000002') as response:
+	from urllib.request import urlopen
+	with urlopen('http://api.eve-central.com/api/marketstat?' + url_text + 'regionlimit=10000002') as response:
 		xml = response.read()
 		from xml.etree import ElementTree as ET
 		#Set price of each material by finding the typeid in the XML data
@@ -153,7 +153,7 @@ bp_mats = blueprint_data[bp_typeID]['activities']['manufacturing']['materials']
 materials = init_materials(bp_mats)
 
 #Create the typeid specific part of the url
-text = create_marketstat_url()
+url_text = create_marketstat_url()
 
 #Request XML data for materials and product, only returns product price, material prices set in materials dictionary
 productprice = get_market_data()
