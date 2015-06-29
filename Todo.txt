@@ -1,3 +1,2 @@
- - Needs to grab names of blueprint/product from somewhere, using typeIDs
  - Functionality to add players personal probability chance instead of just the default
  - Options, such as how many cycles to run

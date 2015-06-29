@@ -2,6 +2,7 @@ import math
 import random
 import json
 import urllib.request
+import csv
 
 #Class for the decryptor used to affect probability, max runs, material/time efficiency in invention
 class Decryptor():
@@ -63,6 +64,12 @@ def load_json():
 	data = {}
 	with open('blueprints.json', 'r') as fp:
 		return json.load(fp)
+
+def load_csv():
+	data = {}
+	with open('typeids.csv', 'r') as fp:
+		reader = csv.reader(fp)
+		return {rows[0]:rows[1] for rows in reader}
 	
 def init_materials(materials):
 	for mats in bp_mats:
@@ -73,6 +80,9 @@ def init_materials(materials):
 
 #To hold BP dictionary
 bp_json_data = load_json()
+
+#To hold typeID to name dictionary
+typeID_name_data = load_csv()
 
 #Take typeID from input 
 the_bp_typeID = input('Enter the typeID of the tier 2 blueprint \n>> ')
@@ -103,18 +113,20 @@ with urllib.request.urlopen('http://api.eve-central.com/api/marketstat?' + text 
 	#Set product price in the same way
 	productprice = float(ET.fromstring(xml).find('marketstat/type[@id=\'' + product_typeID + '\']/sell/min').text)
 
-test_bp = Blueprint("N/A", bp_mats)
-test_product = Product("N/A", productprice) 
+test_bp = Blueprint(typeID_name_data[the_bp_typeID], bp_mats)
+test_product = Product(typeID_name_data[product_typeID], productprice) 
 
 #Decryptors
-input_mats = (Decryptor("Accelerant Decryptor", 1.2, 1, 2, 10),
-			  Decryptor("Attainment Decryptor", 1.8, 4, -1, 4),
-			  Decryptor("Augmentation Decryptor", 0.6, 9, -2, 2),
-			  Decryptor("Optimized Attainment Decryptor", 1.9, 2, 1, -2),
-			  Decryptor("Optimized Augmentation Decryptor", 0.9, 7, 2, 0),
-			  Decryptor("Parity Decryptor", 1.5, 3, 1, -2),
-			  Decryptor("Process Decryptor", 1.1, 0, 3, 6),
-			  Decryptor("Symmetry Decryptor", 1, 2, 1, 8))
+input_mats = (
+	Decryptor("Accelerant Decryptor", 1.2, 1, 2, 10),
+	Decryptor("Attainment Decryptor", 1.8, 4, -1, 4),
+	Decryptor("Augmentation Decryptor", 0.6, 9, -2, 2),
+	Decryptor("Optimized Attainment Decryptor", 1.9, 2, 1, -2),
+	Decryptor("Optimized Augmentation Decryptor", 0.9, 7, 2, 0),
+	Decryptor("Parity Decryptor", 1.5, 3, 1, -2),
+	Decryptor("Process Decryptor", 1.1, 0, 3, 6),
+	Decryptor("Symmetry Decryptor", 1, 2, 1, 8)
+)
 
 outcomes = []
 for index in range(len(input_mats)):
@@ -137,3 +149,5 @@ for name in averages:
 
 for key, value in averages.items():
 	print(key + " : " + "{:,}".format(math.floor(value)))
+
+input('Press enter to exit.')
