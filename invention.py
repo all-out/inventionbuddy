@@ -1,7 +1,6 @@
 import math
 import sys
 from urllib.error import URLError, HTTPError
-import time
 
 class BlueprintInvention():
 
@@ -300,7 +299,6 @@ def _create_marketstat_split_url(products, data, start=0, end=0):
 	    sys.exit()
 	print('end of the rabbit hole')
 
-
 def _get_market_data_ver2(materials, url_text):
 	from urllib.request import urlopen
 	with urlopen('http://api.eve-central.com/api/marketstat?' + url_text + 'regionlimit=10000002') as response:
@@ -325,10 +323,8 @@ def _get_market_data_ver3(products, url_text):
 					value.typeID + '\']/sell/min').text))
 			except:
 				continue
-			#print(value.sell_cost)
 		#Set product price in the same way
 		return
-
 
 def _get_product_market_data(possible_products, new_url_text, name_typeID_data):
 	try:
@@ -339,7 +335,6 @@ def _get_product_market_data(possible_products, new_url_text, name_typeID_data):
 	    if e.code == 414:
 	    	#Here goes new method of getting urltext and market data
 	    	print('WE NEED TO GO DEEPER')
-	    	#time.sleep(3)
 	    	_create_marketstat_split_url(possible_products, name_typeID_data)
 	except URLError as e:
 	    print('We failed to reach a server.')
